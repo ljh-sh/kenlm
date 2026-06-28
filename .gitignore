@@ -1,0 +1,13 @@
+# build outputs
+/build/
+/dist/
+
+# CMake (if someone builds in-tree)
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+*.o
+*.obj
+
+# macOS
+.DS_Store
