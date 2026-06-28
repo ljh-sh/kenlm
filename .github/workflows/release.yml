@@ -45,7 +45,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake build-essential \
             libboost-program-options-dev libboost-system-dev \
-            libboost-thread-dev libboost-iostreams-dev \
+            libboost-thread-dev libboost-iostreams-dev libboost-test-dev \
             zlib1g-dev libbz2-dev liblzma-dev
 
       - name: Install deps (macOS)
@@ -62,7 +62,7 @@ jobs:
         shell: pwsh
         run: |
           & "$env:VCPKG_ROOT\vcpkg.exe" install `
-            boost-program-options boost-system boost-thread boost-iostreams `
+            boost-program-options boost-system boost-thread boost-iostreams boost-test `
             zlib bzip2 liblzma `
             --triplet ${{ matrix.triplet }}
 
@@ -141,7 +141,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake build-essential \
             libboost-program-options-dev libboost-system-dev \
-            libboost-thread-dev libboost-iostreams-dev \
+            libboost-thread-dev libboost-iostreams-dev libboost-test-dev \
             zlib1g-dev libbz2-dev liblzma-dev
       - name: Build
         run: bash scripts/build.sh
