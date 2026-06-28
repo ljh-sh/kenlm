@@ -61,6 +61,11 @@ jobs:
         if: matrix.os == 'windows'
         shell: pwsh
         run: |
+          # GitHub windows runners expose vcpkg via VCPKG_INSTALLATION_ROOT (not VCPKG_ROOT).
+          if (-not $env:VCPKG_ROOT) {
+            $env:VCPKG_ROOT = if ($env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT } else { 'C:\vcpkg' }
+            "VCPKG_ROOT=$env:VCPKG_ROOT" | Add-Content -Path $env:GITHUB_ENV
+          }
           & "$env:VCPKG_ROOT\vcpkg.exe" install `
             boost-program-options boost-system boost-thread boost-iostreams boost-test `
             zlib bzip2 liblzma `
