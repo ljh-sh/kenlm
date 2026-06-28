@@ -63,6 +63,13 @@ export CMAKE_PREFIX_PATH="$(brew --prefix zlib);$(brew --prefix bzip2);$(brew --
 
 Binaries appear in `build/bin/`.
 
+> **Note:** `scripts/build.sh` auto-injects `cmake/lib/cmake/boost_system/`, a
+> header-only shim for `boost_system`. Since Boost ≥1.69, `boost_system` is
+> header-only and ships no compiled library or per-component CMake config, so
+> neither FindBoost nor BoostConfig can resolve a `system` *component*. The shim
+> provides it so the vendored upstream CMake is left untouched.
+
+
 ## Update the vendored upstream
 
 ```sh
