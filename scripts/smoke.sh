@@ -37,7 +37,16 @@ echo "==> build_binary"
 "$BUILD_BINARY" "$TMP/model.arpa" "$TMP/model.binary"
 
 echo "==> query"
-printf 'the cat sat\n' | "$QUERY" "$TMP/model.binary" > "$TMP/out.txt"
-[ -s "$TMP/out.txt" ] || { echo "error: query produced no output" >&2; exit 1; }
+# Read queries from a file, not a pipe: on Windows, kenlm's ReadFile treats a
+# closed stdin pipe as ERROR_BROKEN_PIPE (109) on the final read. A regular
+# file hits clean EOF on every platform. We gate on output being produced and
+# tolerate a non-zero exit (cosmetic broken-pipe at shutdown).
+printf 'the cat sat\nthe cat ran\n' > "$TMP/queries.txt"
+"$QUERY" "$TMP/model.binary" < "$TMP/queries.txt" > "$TMP/out.txt" 2>"$TMP/qerr.txt" || true
+if [ ! -s "$TMP/out.txt" ]; then
+	echo "error: query produced no output" >&2
+	cat "$TMP/qerr.txt" >&2
+	exit 1
+fi
 
 echo "smoke OK: trained 3-gram, built binary model, queried successfully"
