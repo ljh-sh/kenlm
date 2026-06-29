@@ -23,17 +23,21 @@ Built into each release archive under `bin/`:
 
 ## Platform matrix
 
-Every release builds 6 targets via GitHub Actions on **native runners**
+Every release builds 5 targets via GitHub Actions on **native runners**
 (reliable for a Boost C++ project):
 
 | target | runner | linkage |
 |---|---|---|
 | `x86_64-linux-gnu` | `ubuntu-latest` | fully static |
 | `aarch64-linux-gnu` | `ubuntu-24.04-arm` | fully static |
-| `x86_64-macos` | `macos-13` | static Boost+compression, system libc++/libSystem |
-| `aarch64-macos` | `macos-14` | same |
+| `aarch64-macos` | `macos-14` | static Boost+compression, system libc++/libSystem |
 | `x86_64-windows` | `windows-latest` | static CRT + static vcpkg libs |
 | `aarch64-windows` | `windows-11-arm` | best-effort |
+
+> **macOS is Apple Silicon only.** Intel macOS (`x86_64-macos`) is not built:
+> GitHub's `macos-13` Intel runner is deprecated with severe capacity shortages
+> (multi-hour queues), and Intel Macs are a shrinking minority. To restore it,
+> cross-compile `x86_64` on `macos-14` via Rosetta (`arch -x86_64` + Intel Homebrew).
 
 ## Self-containedness
 

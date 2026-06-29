@@ -28,7 +28,6 @@ jobs:
         include:
           - { target: x86_64-linux-gnu,  runner: ubuntu-latest,    os: linux,   }
           - { target: aarch64-linux-gnu, runner: ubuntu-24.04-arm, os: linux,   }
-          - { target: x86_64-macos,      runner: macos-13,         os: macos,   }
           - { target: aarch64-macos,     runner: macos-14,         os: macos,   }
           - { target: x86_64-windows,    runner: windows-latest,   os: windows, triplet: x64-windows-static   }
           - { target: aarch64-windows,   runner: windows-11-arm,   os: windows, triplet: arm64-windows-static }
