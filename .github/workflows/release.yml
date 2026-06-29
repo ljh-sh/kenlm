@@ -68,6 +68,8 @@ jobs:
           }
           & "$env:VCPKG_ROOT\vcpkg.exe" install `
             boost-program-options boost-system boost-thread boost-iostreams boost-test `
+            boost-ptr-container boost-interprocess boost-random boost-range boost-unordered `
+            boost-functional boost-optional boost-lexical-cast boost-utility boost-smart-ptr boost-core `
             zlib bzip2 liblzma `
             --triplet ${{ matrix.triplet }}
 
