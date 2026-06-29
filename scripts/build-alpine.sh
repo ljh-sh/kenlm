@@ -38,6 +38,7 @@ cmake -S upstream/kenlm -B build \
 	-DCMAKE_BUILD_TYPE=Release \
 	-DFORCE_STATIC=ON \
 	-DBoost_USE_STATIC_LIBS=ON \
+	-DBoost_USE_STATIC_RUNTIME=ON \
 	-DBOOST_ROOT="$BOOST_PREFIX" \
 	-DCMAKE_PREFIX_PATH="/w/cmake"
 
