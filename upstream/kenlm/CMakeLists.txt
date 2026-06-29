@@ -55,6 +55,10 @@ if (FORCE_STATIC)
 	      string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
 	    endif(${flag_var} MATCHES "/MD")
 	  endforeach(flag_var)
+	# [ljh-sh dist patch] Drop the dllimport decorations the WIN32 block above
+	# added (-DBOOST_*_DYN_LINK): they expect *dynamic* Boost and break linking
+	# against static libs (unresolved __imp_ symbols). See NOTICE.md.
+	remove_definitions(-DBOOST_PROGRAM_OPTIONS_DYN_LINK -DBOOST_THREAD_DYN_LINK -DBOOST_IOSTREAMS_DYN_LINK)
   else (MSVC)
     if (NOT CMAKE_C_COMPILER_ID MATCHES ".*Clang")
       set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++ -static")
