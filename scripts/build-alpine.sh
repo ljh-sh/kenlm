@@ -22,7 +22,7 @@ if [ ! -f "$BOOST_PREFIX/lib/libboost_program_options.a" ]; then
 	if [ ! -f "$BOOST_DIR.tar.gz" ]; then
 		wget -q "https://archives.boost.org/release/$BOOST_VER/source/$BOOST_DIR.tar.gz"
 	fi
-	echo "$BOOST_SHA256" | sha256sum -c --strict
+	echo "$BOOST_SHA256" | sha256sum -c
 	rm -rf "$BOOST_DIR"
 	tar xzf "$BOOST_DIR.tar.gz"
 	cd "$BOOST_DIR"
