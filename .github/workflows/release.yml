@@ -18,28 +18,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Full 6-platform matrix — dispatch + tag.
+  # Full matrix — dispatch + tag.
   build:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ${{ matrix.runner }}
+    fail-fast: false
     strategy:
-      fail-fast: false
       matrix:
         include:
-          - { target: x86_64-linux-gnu,  runner: ubuntu-latest,    os: linux,   }
-          - { target: aarch64-linux-gnu, runner: ubuntu-24.04-arm, os: linux,   }
-          - { target: aarch64-macos,     runner: macos-14,         os: macos,   }
-          - { target: x86_64-windows,    runner: windows-latest,   os: windows, triplet: x64-windows-static   }
-          - { target: aarch64-windows,   runner: windows-11-arm,   os: windows, triplet: arm64-windows-static }
-    continue-on-error: ${{ matrix.target == 'aarch64-windows' }}
+          - { target: x86_64-linux-gnu,   runner: ubuntu-latest,    os: linux,   libc: gnu,  }
+          - { target: aarch64-linux-gnu,  runner: ubuntu-24.04-arm, os: linux,   libc: gnu,  }
+          - { target: x86_64-linux-musl,  runner: ubuntu-latest,    os: linux,   libc: musl, docker_arch: amd64 }
+          - { target: aarch64-linux-musl, runner: ubuntu-24.04-arm, os: linux,   libc: musl, docker_arch: arm64 }
+          - { target: aarch64-macos,      runner: macos-14,         os: macos                 }
+          - { target: x86_64-windows,     runner: windows-latest,   os: windows, triplet: x64-windows-static   }
+          - { target: aarch64-windows,    runner: windows-11-arm,   os: windows, triplet: arm64-windows-static }
+    continue-on-error: ${{ matrix.target == 'aarch64-windows' || matrix.target == 'aarch64-linux-musl' }}
     env:
       TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v4
 
-      # ---- install deps -------------------------------------------------
-      - name: Install deps (Linux)
-        if: matrix.os == 'linux'
+      # ---- install deps ----------------------------------------------------
+      - name: Install deps (Linux gnu)
+        if: matrix.libc == 'gnu'
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential \
@@ -60,7 +62,6 @@ jobs:
         if: matrix.os == 'windows'
         shell: pwsh
         run: |
-          # GitHub windows runners expose vcpkg via VCPKG_INSTALLATION_ROOT (not VCPKG_ROOT).
           if (-not $env:VCPKG_ROOT) {
             $env:VCPKG_ROOT = if ($env:VCPKG_INSTALLATION_ROOT) { $env:VCPKG_INSTALLATION_ROOT } else { 'C:\vcpkg' }
             "VCPKG_ROOT=$env:VCPKG_ROOT" | Add-Content -Path $env:GITHUB_ENV
@@ -72,9 +73,19 @@ jobs:
             zlib bzip2 liblzma `
             --triplet ${{ matrix.triplet }}
 
-      # ---- build --------------------------------------------------------
-      - name: Build (Unix)
-        if: matrix.os != 'windows'
+      # ---- build -----------------------------------------------------------
+      - name: Build (Linux gnu — host)
+        if: matrix.libc == 'gnu'
+        run: bash scripts/build.sh
+
+      # Alpine container: musl-native toolchain, Boost from source (Alpine
+      # ships no static Boost), FORCE_STATIC -> fully static musl binary.
+      - name: Build (Linux musl — Alpine container)
+        if: matrix.libc == 'musl'
+        run: docker run --rm --platform linux/${{ matrix.docker_arch }} -v "$PWD":/w -w /w alpine:3.20 /w/scripts/build-alpine.sh
+
+      - name: Build (macOS)
+        if: matrix.os == 'macos'
         run: bash scripts/build.sh
 
       - name: Build (Windows)
@@ -84,12 +95,27 @@ jobs:
           VCPKG_TARGET_TRIPLET: ${{ matrix.triplet }}
         run: pwsh scripts/build.ps1
 
-      # ---- smoke --------------------------------------------------------
-      - name: Smoke test (train -> build_binary -> query)
-        shell: bash
+      # ---- smoke -----------------------------------------------------------
+      # For musl: run smoke INSIDE alpine — this is the runtime verification
+      # that the musl-static binary actually works on Alpine.
+      - name: "Smoke test (host: gnu / macos / windows)"
+        if: matrix.libc != 'musl'
         run: bash scripts/smoke.sh
 
-      # ---- package ------------------------------------------------------
+      - name: Smoke test on Alpine (musl — proves Alpine compat)
+        if: matrix.libc == 'musl'
+        run: docker run --rm --platform linux/${{ matrix.docker_arch }} -v "$PWD":/w -w /w alpine:3.20 sh -c 'apk add --no-cache bash >/dev/null && bash /w/scripts/smoke.sh'
+
+      # ---- benchmark minimal pipeline -------------------------------------
+      # Runs on host for ALL targets so musl vs glibc timings are directly
+      # comparable (the musl-static binary runs on the ubuntu host fine).
+      - name: Benchmark minimal pipeline
+        shell: bash
+        run: |
+          mkdir -p dist
+          bash scripts/bench.sh TARGET=${{ matrix.target }} | tee dist/bench-${{ matrix.target }}.tsv
+
+      # ---- package ---------------------------------------------------------
       - name: Package (Unix)
         if: matrix.os != 'windows'
         run: TARGET=${{ matrix.target }} bash scripts/package.sh
@@ -101,7 +127,7 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: pwsh scripts/package.ps1
 
-      # ---- verify self-contained ---------------------------------------
+      # ---- verify self-contained ------------------------------------------
       - name: Verify self-contained (staged binary)
         if: matrix.os != 'windows'
         run: |
@@ -126,7 +152,7 @@ jobs:
           file dist/kenlm-${{ matrix.target }}/bin/lmplz
           du -h dist/kenlm-${{ matrix.target }}.tar.gz
 
-      # ---- upload -------------------------------------------------------
+      # ---- upload ----------------------------------------------------------
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -134,7 +160,7 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
-  # Cheap, fast feedback on push/PR: Linux only, no packaging.
+  # Cheap, fast feedback on push/PR: Linux gnu only, no packaging.
   smoke-linux:
     if: >-
       (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/'))
@@ -167,7 +193,6 @@ jobs:
       - name: Generate SHA256SUMS
         run: |
           cd dist
-          ls -la
           find . -type f \( -name '*.tar.gz' -o -name '*.zip' \) -print0 \
             | xargs -0 sha256sum | sed 's|^\([^ ]*\)  \./|\1  |' > SHA256SUMS
           cat SHA256SUMS
