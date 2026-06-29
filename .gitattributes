@@ -1,7 +1,8 @@
 # Vendored upstream — hide from language stats
 upstream/kenlm/** linguist-vendored
 
-# Line endings
+# Line endings (LF for all scripts: backtick line-continuation in PowerShell
+# breaks under CRLF checkout, and LF .ps1 runs fine on Windows).
 *.sh  text eol=lf
-*.ps1 text eol=crlf
+*.ps1 text eol=lf
 *.yml text eol=lf
