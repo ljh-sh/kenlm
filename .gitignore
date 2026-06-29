@@ -2,6 +2,9 @@
 /build/
 /dist/
 
+# local bench/download scratch
+/bench/
+
 # CMake (if someone builds in-tree)
 CMakeCache.txt
 CMakeFiles/
