@@ -12,7 +12,7 @@ BOOST_PREFIX="${BOOST_PREFIX:-/opt/boost}"
 BOOST_DIR="boost_$(printf '%s' "$BOOST_VER" | tr . _)"
 
 echo "==> apk add: build deps"
-apk add --no-cache build-base cmake git wget bash zlib-dev bzip2-dev lzma-dev
+apk add --no-cache build-base cmake git wget bash zlib-dev bzip2-dev xz-dev
 
 if [ ! -f "$BOOST_PREFIX/lib/libboost_program_options.a" ]; then
 	echo "==> Boost $BOOST_VER from source (musl, static, minimal)"
