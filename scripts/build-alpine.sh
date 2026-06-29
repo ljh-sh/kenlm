@@ -10,6 +10,8 @@ set -eu
 BOOST_VER="${BOOST_VER:-1.84.0}"
 BOOST_PREFIX="${BOOST_PREFIX:-/opt/boost}"
 BOOST_DIR="boost_$(printf '%s' "$BOOST_VER" | tr . _)"
+# Pinned SHA256 of the boost source tarball (supply-chain integrity).
+BOOST_SHA256="a5800f405508f5df8114558ca9855d2640a2de8f0445f051fa1c7c3383045724  $BOOST_DIR.tar.gz"
 
 echo "==> apk add: build deps"
 apk add --no-cache build-base cmake git wget bash linux-headers zlib-dev bzip2-dev xz-dev
@@ -20,6 +22,7 @@ if [ ! -f "$BOOST_PREFIX/lib/libboost_program_options.a" ]; then
 	if [ ! -f "$BOOST_DIR.tar.gz" ]; then
 		wget -q "https://archives.boost.org/release/$BOOST_VER/source/$BOOST_DIR.tar.gz"
 	fi
+	echo "$BOOST_SHA256" | sha256sum -c --strict
 	rm -rf "$BOOST_DIR"
 	tar xzf "$BOOST_DIR.tar.gz"
 	cd "$BOOST_DIR"

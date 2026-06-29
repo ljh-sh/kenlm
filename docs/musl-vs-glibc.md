@@ -37,8 +37,9 @@ aarch64-macos          0.0506      1991      0       0      1343    0.000279    
 x86_64-windows         —            2059      1       0      1342    —             19.82     959
 aarch64-windows        —            2059      0       0      1342    —             19.82     939
 
-  — on Windows `lmplz`'s self-reported `real:` line goes to a different stream
-    and the bench's parser does not capture it (model sizes + ppl are real).
+  — on Windows `lmplz` / `query` don't print the self-reported `real:` line at
+    all (kenlm quirk on that toolchain), so `train_s`/`query_s` are not captured
+    even though `bench.sh` merges stderr into stdout (model sizes + ppl are real).
 ```
 
 ## Key finding: musl vs glibc binary size
