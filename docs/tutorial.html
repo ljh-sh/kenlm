@@ -25,6 +25,14 @@ bug reports, and contributions, please go to the
 This site distributes pre-built static binaries; it does not maintain kenlm.</p>
 </div>
 
+<div class="callout">
+<p><b>kenlm is CPU-only.</b> Training runs on pthreads and a
+memory-resident sort buffer — no GPU is ever required. A free Colab
+CPU, a laptop, or a desktop are all plenty for typical corpora. (You
+may see old tutorials that claim kenlm uses Colab's GPU; that's a
+mistake — kenlm has no GPU code at all.)</p>
+</div>
+
 <nav class="toc">
 <h2>On this page</h2>
 <ol>
