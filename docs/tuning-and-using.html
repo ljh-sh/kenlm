@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>kenlm tutorial — tuning, pruning, integration</title>
+<meta name="description" content="Intermediate kenlm tutorial: order, memory, pruning, quantization, embedding in C++, batch scoring.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="page">
+<h1>Tutorial: tuning, pruning, integrating kenlm</h1>
+<p class="kicker">intermediate · 15 min · assumes the beginner tutorial</p>
+<p><a href="tutorial.html">← beginner tutorial</a> · <a href="index.html">kenlm home</a></p>
+</header>
+
+<nav class="toc">
+<h2>On this page</h2>
+<ol>
+<li><a href="#order">Choosing the order (-o)</a></li>
+<li><a href="#memory">Memory tuning (-S) and threading</a></li>
+<li><a href="#discount">Discounting strategies</a></li>
+<li><a href="#filter">Vocabulary pruning with <code>filter</code></a></li>
+<li><a href="#storage">Probing vs trie, and quantization</a></li>
+<li><a href="#mmap">mmap and instant loading</a></li>
+<li><a href="#embed">Embedding in C++</a></li>
+<li><a href="#batch">Batch scoring millions of sentences</a></li>
+<li><a href="#recipes">Real-world recipes</a></li>
+</ol>
+</nav>
+
+<h2 id="order">1. Choosing the order (-o)</h2>
+<p>The order is the single biggest knob. Trade-offs for a ~100M-token corpus:</p>
+<table>
+<tr><th>order</th><th>model size</th><th>training time</th><th>perplexity delta</th></tr>
+<tr><td><code>-o 3</code></td><td>1×</td><td>1×</td><td>baseline</td></tr>
+<tr><td><code>-o 4</code></td><td>~3–5×</td><td>~3×</td><td>−10 to −25 %</td></tr>
+<tr><td><code>-o 5</code></td><td>~10×</td><td>~5×</td><td>−5 to −10 % more on top</td></tr>
+<tr><td><code>-o 6</code></td><td>~30×</td><td>~10×</td><td>diminishing</td></tr>
+</table>
+<p><b>Sweet spot:</b> <code>-o 4</code> for most production use, <code>-o 5</code> when
+you have web-scale data and want every last bit of accuracy. Going past
+5 almost never helps because data is too thin at high orders.</p>
+
+<pre><code>lmplz -o 4 -S 4G &lt; corpus.txt &gt; model.arpa</code></pre>
+
+<h2 id="memory">2. Memory tuning (-S) and threading</h2>
+<p><code>-S</code> sets a single number: total memory budget in bytes (you can
+suffix with <code>G</code>/<code>M</code>). kenlm uses this for both the
+in-memory sort buffer and the hash table for counting.</p>
+<p>Rule of thumb: <code>-S &gt;= 2× peak n-gram count in bytes</code>, plus a margin.
+If you see <code>Vocab hash size estimate exceeds total memory</code>,
+raise it.</p>
+<p>On modern machines, try <code>-S 16G</code> first and watch <code>top</code>:</p>
+
+<pre><code>build_binary trie -a 22 -q 8 -b 8 &lt; model.arpa &gt; model.bin
+# -a 22   array-pointer compression
+# -q 8    probability quantization (8 bits)
+# -b 8    backoff quantization (8 bits)</code></pre>
+
+<h2 id="discount">3. Discounting strategies</h2>
+<p>By default kenlm uses <b>modified interpolated Kneser-Ney</b>, which is
+strong out of the box. Two flags you should know:</p>
+<table>
+<tr><th>flag</th><th>effect</th></tr>
+<tr><td><code>--discount_fallback</code></td><td>For low-count n-grams where KN discounts would be undefined, fall back to simple
+uniform discounting instead of failing. <b>Use only for tiny corpora or
+class-based models.</b></td></tr>
+<tr><td><code>-d discount-method</code></td><td>advanced: pick among <code>ukn</code> (default), <code>simple</code>,
+<code>wt</code> (Witten-Bell), <code>stupid</code> (Good-Turing).</td></tr>
+</table>
+<p>Unless you have a specific reason, <b>just leave the default</b>.</p>
+
+<h2 id="filter">4. Vocabulary pruning with <code>filter</code></h2>
+<p>If you only need a model that knows a specific vocabulary (e.g.
+machine-translation system's output vocab), <code>filter</code> strips
+the model:</p>
+
+<pre><code># one token per line, plain text
+sort -u corpus.txt &gt; vocab.txt
+
+filter file vocab.txt &lt; model.arpa &gt; model.pruned.arpa
+build_binary model.pruned.arpa model.bin</code></pre>
+<p>Effect: model shrinks dramatically (often 5–50×) and perplexity on
+in-vocab text is <i>usually</i> unchanged. Out-of-vocab text starts
+penalising (kenlm can't score what it doesn't know).</p>
+<p>Other <code>filter</code> modes worth knowing:</p>
+<ul>
+<li><code>filter grep PATTERN</code> — keep only n-grams matching a regex
+(useful for keeping only lowercased words, or only ASCII, etc.)</li>
+<li><code>filter phrase_table_vocab source target</code> — restrict to a
+translation phrase table's vocabulary (a common MT pattern)</li>
+</ul>
+
+<h2 id="storage">5. Probing vs trie, and quantization</h2>
+<table>
+<tr><th>layout</th><th>memory</th><th>query speed</th><th>best for</th></tr>
+<tr><td><b>probing</b> (default)</td><td>~50 % more than trie</td><td>fastest</td><td>latency-critical decoding</td></tr>
+<tr><td><b>trie</b></td><td>smallest</td><td>slightly slower</td><td>constrained memory, batch scoring</td></tr>
+</table>
+<p>Reduce both with quantization:</p>
+
+<pre><code>build_binary trie \
+    -a 22 \      # 22-bit array-pointer compression
+    -q 8 \       # 8-bit probability quantization
+    -b 8 \       # 8-bit backoff weight quantization
+    &lt; model.arpa &gt; model.bin
+
+# Typical: ~40 % smaller, &lt;1 % perplexity hit</code></pre>
+<p>Quantization errors are bounded and small. Ship the quantized binary
+to users; keep one un-quantized copy for benchmarking.</p>
+
+<h2 id="mmap">6. mmap and instant loading</h2>
+<p>On Linux, kenlm auto-mmaps any model under about 2&nbsp;GB when you
+construct <code>lm::ngram::Model</code>. This means:</p>
+<ul>
+<li>The model doesn't get copied into process memory</li>
+<li>First load <b>looks</b> like ~50&nbsp;ms but is actually a <code>mmap</code></li>
+<li>Memory usage grows only with the words you actually score</li>
+</ul>
+<p>For a 100&nbsp;MB model this is a 100× startup-time improvement. There is
+nothing to do &mdash; it's already on.</p>
+
+<p>If you want to disable it (e.g. on Windows where mmap behaves
+differently) or force it:</p>
+
+<pre><code class="language-cpp">// disable
+lm::ngram::Config cfg;
+cfg.load_method = util::LAZY;
+// or fully into memory: cfg.load_method = util::POPULATE_OR_READ;
+// or fully mmap:        cfg.load_method = util::READ;
+
+lm::ngram::Model model("model.bin", cfg);</code></pre>
+
+<h2 id="embed">7. Embedding in C++ (a self-contained example)</h2>
+<pre><code class="language-cpp">// score.cc — score a stream of sentences against a kenlm model.
+//   g++ -O2 -pthread score.cc -o score
+#include &lt;lm/model.hh&gt;
+#include &lt;lm/lm_exception.hh&gt;
+#include &lt;cstdio&gt;
+#include &lt;cstring&gt;
+#include &lt;string&gt;
+
+int main(int argc, char** argv) {
+    if (argc &lt; 2) { fprintf(stderr, "usage: %s model.bin &lt; sentences.tsv\n", argv[0]); return 1; }
+    lm::ngram::Model model(argv[1]);
+
+    std::string line;
+    while (std::getline(std::cin, line)) {
+        lm::ngram::State st(model.BeginSentenceState());
+        double total = 0.0;
+        // expect: tokens separated by spaces, no &lt;/s&gt; (we add it)
+        char* save;
+        for (char* tok = strtok_r(const_cast&lt;char*&gt;(line.data()), " ", &amp;save);
+             tok; tok = strtok_r(nullptr, " ", &amp;save)) {
+            auto id = model.GetVocabulary().Index(tok);
+            if (id == lm::kUNK) total += model.OOVScore(st);
+            else                 total += model.Score(st, id, st);
+        }
+        total += model.ScoreEndSentence(&amp;st);
+        std::printf("%f\n", total);
+    }
+}</code></pre>
+
+<p>Build and run:</p>
+<pre><code>g++ -O2 -pthread score.cc -o score -I upstream/kenlm
+# Score a file of tokenized sentences (one per line):
+./score model.bin &lt; sentences.tsv &gt; logprobs.txt</code></pre>
+<p>Headers are header-only — no <code>-lkenlm</code> step. The only
+external runtime deps are <code>libpthread</code> and <code>libm</code>.</p>
+
+<h2 id="batch">8. Batch scoring millions of sentences</h2>
+<p>For large-scale evaluation, the per-construct <code>Model</code> cost is
+amortized; the bottleneck is scoring throughput. The single most
+expensive thing is the per-token <code>Score</code> lookup, so:</p>
+<ul>
+<li><b>Use multi-threading</b>: feed the corpus to multiple threads sharing
+one <code>Model</code>. The model is read-only after load and safe for
+concurrent reads.</li>
+<li><b>Batch <code>OOV</code> lookups</b>: <code>model.GetVocabulary().Index(...)</code>
+is a hash; cache sentence IDs once and reuse.</li>
+<li><b>Don't recreate <code>State</code></b> per token</b> — use the existing
+in-place update pattern (<code>Score(state, w, state)</code>) as shown above.</li>
+</ul>
+<p>Concrete numbers on a single thread on a mid-range x86_64 box:
+~3 M tokens/sec scoring for a 4-gram probing model on disk.</p>
+
+<h2 id="recipes">9. Real-world recipes</h2>
+
+<h3>9.1 Re-ranking N-best from a translation system</h3>
+<pre><code># inputs: kenlm model, a file of tokenized hypotheses (one per line, scored)
+while read -r hyp; do
+    score=$(echo "$hyp" | kenlm/score model.bin | tail -1)
+    echo "$score $hyp"
+done &lt; hypotheses.tsv | sort -nr | head -1000</code></pre>
+
+<h3>9.2 Perplexity of a held-out set</h3>
+<pre><code>kenlm/query model.bin &lt; held_out.txt | grep "^Perplexity"
+# → single line: "Perplexity including OOVs: 42.7"</code></pre>
+
+<h3>9.3 Streaming scoring in a long-running service</h3>
+<p>Construct the <code>Model</code> once at startup, then <code>fork</code>
+workers that <em>share</em> that one Model across processes (it's mmapped
+read-only). Memory cost on each worker: whatever it scores, not the full
+model.</p>
+
+<h3>9.4 Distribute a small model across many boxes</h3>
+<p><code>tar czf model.tgz model.bin</code>. With a musl-static binary, the
+same archive runs on Alpine, Ubuntu, RHEL, macOS, Windows. Kenlm's v0.1.0
+release ships exactly that — same source, 7 platform targets, one verified
+per arch.</p>
+
+<p><a href="index.html" class="btn">← kenlm home</a></p>
+
+<footer>
+<p><a href="tutorial.html">← beginner tutorial</a> · <a href="index.html">kenlm home</a> · <a href="https://github.com/ljh-sh/kenlm">github</a></p>
+</footer>
+
+</body>
+</html>

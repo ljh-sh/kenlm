@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>kenlm — self-contained multi-platform n-gram language model tools</title>
+<meta name="description" content="kenlm: fast, memory-efficient n-gram language model training and querying. Self-contained static binaries for Linux (musl/glibc), macOS, Windows.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main class="wrap">
+
+<a href="#main" class="skip">Skip to content</a>
+
+<section class="hero">
+    <h1>kenlm</h1>
+    <p class="tagline">Fast n-gram language model training &amp; querying.
+    Self-contained static binaries — drop them on any machine and run.</p>
+    <p>
+        <a class="cta" href="#download" id="cta-main">Download for your platform</a>
+        <a class="cta secondary" href="#tutorials">Read the tutorials</a>
+    </p>
+    <p class="meta">
+        Latest: <code>v0.1.0</code> &middot;
+        <a href="https://github.com/ljh-sh/kenlm">github.com/ljh-sh/kenlm</a> &middot;
+        <a href="musl-vs-glibc.html">musl vs glibc</a>
+    </p>
+</section>
+
+<section id="download">
+    <h2>Download v0.1.0</h2>
+    <p>Every archive is a <b>fully self-contained, statically-linked</b> binary.
+    No system libraries to install. Works on any Linux distro (Alpine,
+    Debian, Ubuntu, RHEL, Arch…), macOS, or Windows.</p>
+    <p><span id="detect-line" class="callout">Detecting your platform…</span></p>
+
+    <div class="platforms" id="platforms">
+        <div class="platform" data-target="x86_64-linux-musl">
+            <span class="badge">linux · x86_64 · musl</span>
+            <div class="name">kenlm-x86_64-linux-musl.tar.gz</div>
+            <div class="hint">~3.7 MB lmplz · runs on Alpine &amp; every Linux</div>
+            <a class="download" href="https://github.com/ljh-sh/kenlm/releases/download/v0.1.0/kenlm-x86_64-linux-musl.tar.gz">Download .tar.gz</a> &middot;
+            <a href="https://github.com/ljh-sh/kenlm/releases/download/v0.1.0/kenlm-x86_64-linux-musl.tar.gz.sha256">sha256</a>
+        </div>
+        <div class="platform" data-target="aarch64-linux-musl">
+            <span class="badge">linux · aarch64 · musl</span>
+            <div class="name">kenlm-aarch64-linux-musl.tar.gz</div>
+            <div class="hint">~3.9 MB lmplz · Alpine-native, ARM64 Linux</div>
+            <a class="download" href="https://github.com/ljh-sh/kenlm/releases/download/v0.1.0/kenlm-aarch64-linux-musl.tar.gz">Download .tar.gz</a> &middot;
+            <a href="https://github.com/ljh-sh/kenlm/releases/download/v0.1.0/kenlm-aarch64-linux-musl.tar.gz.sha256">sha256</a>
+        </div>
+        <div class="platform" data-target="x86_64-linux-gnu">
+            <span class="badge">linux · x86_64 · glibc</span>
+            <div class="name">kenlm-x86_64-linux-gnu.tar.gz</div>
+            <div class="hint">~4.2 MB lmplz · glibc-static (universal Linux)</div>
+            <a class="download" href="https://github.com/ljh-sh/kenlm/releases/download/v0.1.0/kenlm-x86_64-linux-gnu.tar.gz">Download .tar.gz</a> &middot;
+            <a href="https://github.com/ljh-sh/kenlm/releases/download/v0.1.0/kenlm-x86_64-linux-gnu.tar.gz.sha256">sha256</a>
+        </div>
+        <div class="platform" data-target="aarch64-linux-gnu">
+            <span class="badge">linux · aarch64 · glibc</span>
+            <div class="name">kenlm-aarch64-linux-gnu.tar.gz</div>
+            <div class="hint">~4.1 MB lmplz · ARM64 Linux, glibc</div>
+            <a class="download" href="https://github.com/ljh-sh/kenlm/releases/download/v0.1.0/kenlm-aarch64-linux-gnu.tar.gz">Download .tar.gz</a> &middot;
+            <a href="https://github.com/ljh-sh/kenlm/releases/download/v0.1.0/kenlm-aarch64-linux-gnu.tar.gz.sha256">sha256</a>
+        </div>
+        <div class="platform" data-target="aarch64-macos">
+            <span class="badge">macos · Apple Silicon</span>
+            <div class="name">kenlm-aarch64-macos.tar.gz</div>
+            <div class="hint">~1.6 MB lmplz · macOS 11+</div>
+            <a class="download" href="https://github.com/ljh-sh/kenlm/releases/download/v0.1.0/kenlm-aarch64-macos.tar.gz">Download .tar.gz</a> &middot;
+            <a href="https://github.com/ljh-sh/kenlm/releases/download/v0.1.0/kenlm-aarch64-macos.tar.gz.sha256">sha256</a>
+        </div>
+        <div class="platform" data-target="x86_64-windows">
+            <span class="badge">windows · x64 · /MT</span>
+            <div class="name">kenlm-x86_64-windows.zip</div>
+            <div class="hint">~0.9 MB lmplz · Win10+</div>
+            <a class="download" href="https://github.com/ljh-sh/kenlm/releases/download/v0.1.0/kenlm-x86_64-windows.zip">Download .zip</a> &middot;
+            <a href="https://github.com/ljh-sh/kenlm/releases/download/v0.1.0/kenlm-x86_64-windows.zip.sha256">sha256</a>
+        </div>
+        <div class="platform" data-target="aarch64-windows">
+            <span class="badge">windows · ARM64</span>
+            <div class="name">kenlm-aarch64-windows.zip</div>
+            <div class="hint">~0.9 MB lmplz · Windows-on-ARM</div>
+            <a class="download" href="https://github.com/ljh-sh/kenlm/releases/download/v0.1.0/kenlm-aarch64-windows.zip">Download .zip</a> &middot;
+            <a href="https://github.com/ljh-sh/kenlm/releases/download/v0.1.0/kenlm-aarch64-windows.zip.sha256">sha256</a>
+        </div>
+    </div>
+    <p style="font-size: 0.85em; color: var(--fg-muted)">
+        <a href="https://github.com/ljh-sh/kenlm/releases/download/v0.1.0/SHA256SUMS">SHA256SUMS</a> &middot;
+        <a href="https://github.com/ljh-sh/kenlm/releases/tag/v0.1.0">release notes</a> &middot;
+        <a href="https://github.com/ljh-sh/kenlm">all releases</a>
+    </p>
+</section>
+
+<section id="quick">
+    <h2>5-minute quick start</h2>
+    <p>If you just want to score text or train a model, you don't need
+    to read anything else:</p>
+<pre><code>tar xzf kenlm-x86_64-linux-musl.tar.gz
+cp kenlm-x86_64-linux-musl/bin/* /usr/local/bin/
+
+cat &gt; corpus.txt &lt;&lt;'EOF'
+the cat sat on the mat
+the cat ran fast and far
+the dog sat down by the door
+a small cat and a small dog
+the cat and the dog sat together
+EOF
+
+lmplz -o 3 --discount_fallback &lt; corpus.txt &gt; model.arpa
+build_binary model.arpa model.bin
+echo "the cat sat" | query model.bin
+# Perplexity including OOVs:	3.49</code></pre>
+    <p>That's the whole pipeline. The full tutorials cover vocabulary
+    pruning, memory tuning, C++ embedding, batch scoring, and reading
+    every byte of <code>kenlm</code> output.</p>
+</section>
+
+<section id="tutorials">
+    <h2>Tutorials</h2>
+    <div class="cards">
+
+        <div class="card">
+            <h3>Beginner · 5 minutes</h3>
+            <p>Train your first language model. Install the binaries, run
+            <code>lmplz</code>, <code>build_binary</code>, and <code>query</code>
+            on a tiny corpus, then learn what every line of output means.</p>
+            <a class="cta" href="tutorial.html">Read the beginner tutorial →</a>
+        </div>
+
+        <div class="card">
+            <h3>Intermediate · tuning &amp; integration</h3>
+            <p>Order, memory, discounting, vocabulary pruning, quantization,
+            mmap, C++ embedding, batch scoring, real-world recipes for
+            re-ranking and perplexity evaluation.</p>
+            <a class="cta secondary" href="tuning-and-using.html">Read the tuning tutorial →</a>
+        </div>
+
+    </div>
+</section>
+
+<section id="releases">
+    <h2>What's in v0.1.0</h2>
+    <p>Seven platform targets, all built natively on GitHub Actions
+    and verified to run on their target OS:</p>
+    <table>
+        <tr><th>target</th><th>runner</th><th>linkage</th></tr>
+        <tr><td><code>x86_64-linux-gnu</code></td><td>ubuntu-latest</td><td><span class="b b-gnu">glibc</span> fully static</td></tr>
+        <tr><td><code>aarch64-linux-gnu</code></td><td>ubuntu-24.04-arm</td><td><span class="b b-gnu">glibc</span> fully static</td></tr>
+        <tr><td><code>x86_64-linux-musl</code></td><td>ubuntu-latest + alpine</td><td><span class="b b-musl">musl</span>-static, <b>verified on Alpine</b></td></tr>
+        <tr><td><code>aarch64-linux-musl</code></td><td>ubuntu-24.04-arm + alpine</td><td><span class="b b-musl">musl</span>-static, ARM64 Linux</td></tr>
+        <tr><td><code>aarch64-macos</code></td><td>macos-14</td><td><span class="b b-macos">macos</span> static Boost, system libc++</td></tr>
+        <tr><td><code>x86_64-windows</code></td><td>windows-latest + vcpkg</td><td><span class="b b-win">win</span> static CRT, /MT</td></tr>
+        <tr><td><code>aarch64-windows</code></td><td>windows-11-arm + vcpkg</td><td><span class="b b-win">win</span> Windows-on-ARM</td></tr>
+    </table>
+    <p>The Linux builds ship as <i>both</i> glibc-static and musl-static so
+    one archive works on every Linux distro — Alpine, Debian/Ubuntu, RHEL,
+    Arch. The musl build is verified by running its smoke test <i>inside
+    Alpine</i> on CI.</p>
+    <p>See <a href="musl-vs-glibc.html">musl-vs-glibc comparison</a> for the
+    bench numbers (musl is ~10&nbsp;% smaller on x86_64) and the reasoning
+    behind shipping both.</p>
+</section>
+
+<footer>
+<p>
+    kenlm original: © 2011 Kenneth Heafield &middot;
+    LGPL licensed.
+    This distribution packaging, CI, musl + glibc split, and self-contained
+    release maintained by <a href="https://github.com/ljh-sh">ljh-sh</a>:
+    combined binaries under
+    <a href="https://www.gnu.org/licenses/gpl-3.0.html">GPLv3</a> &middot;
+    <a href="https://github.com/ljh-sh/kenlm/blob/main/NOTICE.md">NOTICE</a> &middot;
+    <a href="https://github.com/ljh-sh/kenlm">source repo</a>.
+</p>
+</footer>
+
+</main>
+
+<script src="platform.js"></script>
+</body>
+</html>

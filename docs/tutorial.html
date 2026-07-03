@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>kenlm tutorial — train your first language model in 5 minutes</title>
+<meta name="description" content="Step-by-step beginner tutorial for kenlm: install, train, build, query, troubleshoot.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="page">
+<h1>Tutorial: train your first language model in 5 minutes</h1>
+<p class="kicker">beginner · copy-pasteable · &lt;5 min</p>
+<p><a href="index.html">← kenlm</a> · <a href="tuning-and-using.html">next: tuning &amp; integration →</a></p>
+</header>
+
+<nav class="toc">
+<h2>On this page</h2>
+<ol>
+<li><a href="#what">What is kenlm?</a></li>
+<li><a href="#install">Install</a></li>
+<li><a href="#concepts">Core concepts</a></li>
+<li><a href="#first">Your first model (5 minutes)</a></li>
+<li><a href="#interpret">Reading the output</a></li>
+<li><a href="#memory">Bigger corpora &amp; memory</a></li>
+<li><a href="#code">Loading the model from C++</a></li>
+<li><a href="#errors">Common errors</a></li>
+<li><a href="#next">Next steps</a></li>
+</ol>
+</nav>
+
+<h2 id="what">1. What is kenlm?</h2>
+<p><strong>kenlm</strong> is a fast, memory-efficient <em>n-gram language model</em>
+toolkit. Given a plain-text corpus, it produces a model that scores any new
+piece of text with a probability (and derives from it a perplexity, a
+"how surprising is this text" score).</p>
+<p>It's used in:</p>
+<ul>
+<li>Machine translation (the language model for the decoder)</li>
+<li>Retrieval-augmented systems (re-ranking candidates)</li>
+<li>Speech recognition (LM decoding)</li>
+<li>Anywhere you need a "is this sequence plausible?" signal</p>
+</li>
+</ul>
+<p>You get four binaries and one optional header-only C++ library:</p>
+<table>
+<tr><th>binary</th><th>what it does</th></tr>
+<tr><td><code>lmplz</code></td><td><b>train</b>: corpus → ARPA-format n-gram model</td></tr>
+<tr><td><code>build_binary</code></td><td><b>compile</b>: ARPA → compact binary model</td></tr>
+<tr><td><code>query</code></td><td><b>score</b>: sentences → log-probability / perplexity</td></tr>
+<tr><td><code>filter</code></td><td>prune: restrict an ARPA model to a vocabulary</td></tr>
+</table>
+
+<h2 id="install">2. Install</h2>
+<p>kenlm releases are <strong>self-contained static binaries</strong> — no
+system libraries to install, no compiler needed. Pick your platform, download,
+extract, done.</p>
+<p>From the <a href="https://github.com/ljh-sh/kenlm/releases/tag/v0.1.0">v0.1.0 release page</a>,
+grab the archive for your platform and extract it:</p>
+
+<h3>Linux (x86_64 or aarch64, including Alpine)</h3>
+<pre><code>tar xzf kenlm-x86_64-linux-musl.tar.gz
+cp kenlm-x86_64-linux-musl/bin/* /usr/local/bin/
+which lmplz
+# /usr/local/bin/lmplz</code></pre>
+<p>The <code>-musl</code> archive runs on every Linux distro — Alpine,
+Debian, Ubuntu, RHEL, Arch, … — because it's statically linked against
+musl. There's also a <code>-gnu</code> variant if you specifically need
+glibc linkage.</p>
+
+<h3>macOS (Apple Silicon)</h3>
+<pre><code>tar xzf kenlm-aarch64-macos.tar.gz
+cp kenlm-aarch64-macos/bin/* /usr/local/bin/</code></pre>
+
+<h3>Windows (x64 or ARM64)</h3>
+<pre><code>Expand-Archive kenlm-x86_64-windows.zip
+# move bin\* somewhere on $PATH</code></pre>
+
+<h3>Verify</h3>
+<pre><code>lmplz --help</code></pre>
+<p>You should see kenlm's own usage banner. If yes, you're ready.</p>
+
+<h2 id="concepts">3. Core concepts</h2>
+
+<h3>3.1 N-gram language models</h3>
+<p>Given a sequence of tokens
+<code>w₁, w₂, …, wₙ</code>, the model assigns a probability to it.
+N-gram models say: <em>"the probability of token k depends only on the
+N − 1 tokens before it."</em></p>
+<p>Big N → more accurate, more memory. Typical: 3 to 5.</p>
+
+<h3>3.2 ARPA format</h3>
+<p>The output of training. Human-readable, big on disk. Look at it once:</p>
+<pre><code>$ head -20 model.arpa
+\data\
+ngram 1=4
+ngram 2=4
+ngram 3=4
+
+\1-grams:
+-1.2345  word1  -0.5
+...
+
+\end\
+</code></pre>
+<p>You won't normally edit ARPA; you <em>use</em> it by compiling it.</p>
+
+<h3>3.3 Binary model</h3>
+<p><code>build_binary model.arpa model.bin</code> compresses the ARPA into
+two formats you can pick from:</p>
+<ul>
+<li><b>probing</b> (default): fast queries, slightly more memory</li>
+<li><b>trie</b>: lower memory, slightly slower</li>
+</ul>
+<p>Default to <b>probing</b> unless profiling shows trie fits your workload
+better. Switch with <code>-a&nbsp;trie</code>.</p>
+
+<h3>3.4 Perplexity</h3>
+<p>The score you usually report. Lower = better.</p>
+<pre><code>PPL = 2^(-1/N · Σ log₂ P(wᵢ))</code></pre>
+<p>Half the perplexity means the model is twice as good at predicting the
+text. Numbers above 1000 mean the model is nearly useless on that text;
+numbers in the dozens mean it knows what's coming.</p>
+
+<h2 id="first">4. Your first model (5 minutes)</h2>
+<p>Pick any directory. We're going to train a 3-gram model on a tiny
+hand-typed corpus, then score a sentence.</p>
+
+<pre><code>mkdir kenlm-demo &amp;&amp; cd kenlm-demo
+
+# --- 1. The corpus (one sentence per line, UTF-8 plain text)
+cat &gt; corpus.txt &lt;&lt;'EOF'
+the cat sat on the mat
+the cat ran fast and far
+the dog sat down by the door
+a small cat and a small dog
+the cat and the dog sat together
+EOF
+
+# --- 2. Train (--discount_fallback is mandatory for small corpora;
+#        Kneser-Ney discounts can otherwise be undefined)
+lmplz -o 3 --discount_fallback &lt; corpus.txt &gt; model.arpa
+
+# --- 3. Compile to a compact binary
+build_binary model.arpa model.bin
+
+# --- 4. Score a sentence
+echo "the cat sat" | query model.bin</code></pre>
+
+<p><b>Expected</b>: kenlm prints a multi-stage training log, ends with
+<code>SUCCESS</code>, then <code>query</code> prints something like:</p>
+<pre><code>Read 1 sentences
+The command line was:
+  echo "the cat sat" | query model.bin
+   1 sentences, 1 words,  3 OOVs
+   prob = -2.17280  ppl = 3.493
+</code></pre>
+<p>The two numbers you care about: <b>prob</b> (sum of log probabilities) and
+<b>ppl</b> (perplexity). Lower perplexity = the model finds this text more
+predictable.</p>
+
+<h2 id="interpret">5. Reading the output</h2>
+<p>From the training step:</p>
+<pre><code>=== 5/5 Writing ARPA model ===
+lmplz      9650176 bytes  user:0.04s  sys:0.02s  CPU:0.06s  real:0.03s
+SUCCESS</code></pre>
+<ul>
+<li><code>9650176 bytes</code> ≈ <b>how big the ARPA file is on disk</b>, in bytes.</li>
+<li><code>user:0.04s</code>, <code>sys:0.02s</code>: CPU time in user / kernel space.</li>
+<li><code>CPU:0.06s</code>: total CPU time.</li>
+<li><code>real:0.03s</code>: wall-clock time. <b>Use this to compare runs.</b></li>
+<li><code>SUCCESS</code>: the model wrote without error.</li>
+</ul>
+<p>From <code>build_binary</code>:</p>
+<pre><code>Reading /home/.../model.arpa
+----5---10---15---20---25---
+SUCCESS
+This binary file contains probing hash tables.
+  type        B
+  probing 1376 assuming -p 1.5
+...</code></pre>
+<p>From <code>query</code>:</p>
+<pre><code>the=3 2    cat=4 3    sat=5 3    &lt;/s&gt;=2 2
+Total: -2.1727986 OOV: 0
+Perplexity including OOVs:	3.493
+Perplexity excluding OOVs:	3.493
+query       1736704 bytes  user:0.001s  real:0.001s
+</code></pre>
+<ul>
+<li>Each token, the order it appeared at, its ID, and its context count.</li>
+<li><b>Total</b>: sum of log<sub>10</sub> probabilities across all words.</li>
+<li><b>OOV</b>: out-of-vocabulary count. 0 here because all words are from the
+training corpus.</li>
+<li><b>Perplexity</b>: the headline metric. Lower = better.</li>
+</ul>
+
+<h2 id="memory">6. Bigger corpora &amp; memory</h2>
+<p>For real corpora you need to think about memory. The <code>-S</code> flag
+caps the sort buffer lmplz uses for counting:</p>
+<pre><code># A few GB of text needs a few GB of sort memory
+lmplz -o 5 -S 8G &lt; big_corpus.txt &gt; model.arpa</code></pre>
+<p>If lmplz can't compute Kneser-Ney discounts (because your corpus is
+small for the order) you'll get:</p>
+<pre><code>BadDiscountException because 's.n[j] == 0'.
+Could not calculate Kneser-Ney discounts for N-grams with adjusted count N
+because we didn't observe any N-grams with adjusted count M.
+Try deduplicating the input.  To override this error for e.g. a class-based
+model, rerun with --discount_fallback</code></pre>
+<p>Two answers:</p>
+<ul>
+<li><b>Use more data</b> (the real fix).</li>
+<li><b>Use <code>--discount_fallback</code></b> to use crude discounts on the tail.
+Acceptable for prototypes; don't ship it.</li>
+</ul>
+
+<p>Another common error: <code>Vocab hash size estimate exceeds total memory</code>.
+Fix: raise <code>-S</code> (sort buffer is also the hash-table budget) or
+reduce <code>-o</code>.</p>
+
+<h2 id="code">7. Loading the model from C++</h2>
+<p>kenlm ships a header-only C++ API:</p>
+<pre><code class="language-cpp">#include "lm/model.hh"
+#include &lt;cstdio&gt;
+
+int main() {
+    lm::ngram::Model model("model.bin");
+
+    lm::ngram::State state(model.BeginSentenceState());
+    lm::FloatingPoint total = 0.0;
+
+    const char* sentence = "&lt;/s&gt; the cat sat &lt;/s&gt;";
+    for (const char* tok = strtok(const_cast&lt;char*&gt;(sentence), " ");
+         tok; tok = strtok(nullptr, " ")) {
+        auto id = model.GetVocabulary().Index(tok);
+        lm::FloatingPoint score;
+        if (id == lm::kUNK) {
+            score = model.OOVScore(state);
+        } else {
+            score = model.Score(state, id, state);
+        }
+        total += score;
+    }
+    printf("log10 P(sentence) = %f\n", total);
+}</code></pre>
+<p>The header that ships with kenlm is at
+<code>upstream/kenlm/lm/model.hh</code>. Wrap it in your build however you
+like — no autotools required, no link-time magic, just <code>#include</code>
+and link <code>-lpthread -lm</code>.</p>
+
+<h2 id="errors">8. Common errors</h2>
+
+<table>
+<tr><th>error</th><th>cause / fix</th></tr>
+<tr><td><code>libstdc++.so.6: cannot open shared object file</code></td><td>wrong ABI / dynamic build. Use the static binary from the v0.1.0 release — it's always self-contained.</td></tr>
+<tr><td><code>Vocab hash size estimate exceeds total memory</code></td><td><code>-S</code> too small. Raise it, or lower <code>-o</code>, or feed more data.</td></tr>
+<tr><td>silent nonsense probabilities, NaN logs</td><td>likely double-encoded corpus (mojibake). Make sure your text is plain UTF-8, no BOM, no zero-width.</td></tr>
+<tr><td>tiny model gives huge perplexity &gt; 10⁶</td><td>almost always corpus too small for the order. Either lower <code>-o</code>, add <code>--discount_fallback</code>, or get more data.</td></tr>
+<tr><td><code>query: FileNotFoundException</code></td><td>missing or wrong path to the binary model — <code>query</code> wants the <code>.bin</code>, not the <code>.arpa</code>.</td></tr>
+</table>
+
+<h2 id="next">9. Next steps</h2>
+<ul>
+<li>Larger corpora: CommonCrawl, Project Gutenberg, OSCAR, Wikipedia dumps.</li>
+<li>Order tuning: try 4 or 5 once your corpus exceeds ~50M tokens.</li>
+<li>Prune to a vocabulary: <a href="tuning-and-using.html#filter">see <code>filter</code> in the next tutorial</a>.</li>
+<li>Quantize to shrink further: <code>build_binary -q 8 -b 8</code> cuts memory ~2× with &lt;1 % perplexity hit.</li>
+<li>mmap for instant load: kenlm auto-mmaps models &lt; ~2 GB on Linux. Just <code>Model("model.bin")</code> — no code change.</li>
+<li>Score millions of sentences: pipe them into <code>query</code>, or call <code>model.FullScore(...)</code> in C++ for batch APIs.</li>
+</ul>
+
+<p><a href="tuning-and-using.html" class="btn">Next: tuning &amp; integration →</a></p>
+
+<footer>
+<p><a href="index.html">← kenlm</a> · <a href="https://github.com/ljh-sh/kenlm">github.com/ljh-sh/kenlm</a></p>
+</footer>
+
+</body>
+</html>

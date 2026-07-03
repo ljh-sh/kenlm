@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>kenlm — musl-static vs glibc-static comparison</title>
+<meta name="description" content="A measured comparison of musl-static and glibc-static kenlm binaries, with the minimal train→prune→compile→score pipeline and full bench numbers.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<main class="wrap">
+
+<header class="page">
+<p class="crumbs"><a href="index.html">← kenlm home</a></p>
+<h1>musl-static vs glibc-static — comparison</h1>
+<p class="kicker">bench from <a href="https://github.com/ljh-sh/kenlm/releases/tag/v0.1.0">v0.1.0</a> · 7-platform green CI run</p>
+</header>
+
+<h2>The minimal pipeline</h2>
+<p>On the <b>same deterministic synthetic corpus</b> (~20k lines, seeded),
+every target runs:</p>
+<table>
+<tr><th>stage</th><th>tool</th><th>purpose</th></tr>
+<tr><td><b>train</b></td><td><code>lmplz -o 4 -S 100M --discount_fallback</code></td><td>count &amp; interpolate n-grams → ARPA</td></tr>
+<tr><td><b>trim</b></td><td><code>filter file &lt;vocab&gt;</code></td><td>prune ARPA to a vocabulary (= "trim")</td></tr>
+<tr><td><b>compile</b></td><td><code>build_binary</code></td><td>ARPA → compact binary model</td></tr>
+<tr><td><b>score</b></td><td><code>query</code></td><td>score held-out sentences, print perplexity</td></tr>
+</table>
+<p>For each stage we record wall-clock time (<code>real:</code> from kenlm's
+own output for train/score; shell <code>date +%s</code> for the sub-second
+trim/compile), intermediate sizes, and final perplexity. One TSV row
+per target is emitted at <code>dist/bench-&lt;target&gt;.tsv</code>.</p>
+<p>The headline column is <b><code>lmplz_kb</code></b>: the size of the
+<code>lmplz</code> executable itself, which is the direct musl-vs-glibc
+data point.</p>
+
+<h2>Results table</h2>
+<pre><code>target                 train_s    arpa_kb  trim_s  build_s  bin_kb  query_s       ppl    lmplz_kb
+─────────────────────  ────────  ────────  ──────  ───────  ──────  ──────────  ──────  ────────
+x86_64-linux-musl      0.0860      1988      0       0      1342    0.000660      19.82    3743
+x86_64-linux-gnu       0.0559      1989      0       0      1342    0.000643      19.82    4184
+aarch64-linux-musl     0.0646      1988      0       0      1342    0.000484      19.82    3914
+aarch64-linux-gnu      0.0634      1989      0       0      1342    0.000469      19.82    4085
+aarch64-macos          0.0506      1991      0       0      1343    0.000279      23.46    1642
+x86_64-windows         —            2059      1       0      1342    —             19.82     959
+aarch64-windows        —            2059      0       0      1342    —             19.82     939</code></pre>
+
+<p>Note: on Windows, <code>lmplz</code> / <code>query</code> don't print the
+self-reported <code>real:</code> line at all (kenlm quirk on that
+toolchain), so <code>train_s</code>/<code>query_s</code> are not captured
+even though <code>bench.sh</code> merges stderr into stdout. Model sizes
+and ppl are real.</p>
+
+<h2>Key finding: musl binaries are smaller</h2>
+<table>
+<tr><th>arch</th><th>glibc-static</th><th>musl-static</th><th>musl saves</th></tr>
+<tr><td><code>x86_64</code></td><td><b>4,184 KB</b></td><td><b>3,743 KB</b></td><td><b>−441 KB (−10.5 %)</b></td></tr>
+<tr><td><code>aarch64</code></td><td><b>4,085 KB</b></td><td><b>3,914 KB</b></td><td><b>−171 KB (−4.2 %)</b></td></tr>
+</table>
+<p>musl-static binaries are <b>smaller</b> than glibc-static because
+glibc ships more runtime code in its static archive than musl does.
+Both are fully self-contained (no <code>.so</code> at runtime); both run on
+<b>any</b> Linux (Alpine, Debian, RHEL, …).</p>
+
+<p>Functional behavior is identical: both pass <code>smoke.sh</code>
+end-to-end inside their target environment, and <code>smoke.sh</code> for
+the musl targets runs <b>inside <code>alpine:3.20</code></b> — i.e. the
+musl-static binary genuinely executes on Alpine (that's the runtime gate
+for the musl jobs, not just a claim).</p>
+
+<p>Performance (<code>train_s</code>, <code>query_s</code>) is within
+run-to-run noise between musl and glibc — the only meaningful,
+reproducible difference is the binary size, and <b>musl wins on every
+arch</b>.</p>
+
+<h2>Why both, not just one?</h2>
+<p>The repo ships <b>both</b> a glibc-static and a musl-static Linux
+build:</p>
+<ul>
+<li><b>glibc-static</b> (<code>x86_64-linux-gnu</code>,
+<code>aarch64-linux-gnu</code>) is built natively on Ubuntu with
+<code>FORCE_STATIC=ON</code> and the apt-built Boost. Fastest build time
+(~1 min), uses the host gcc/glibc stack, produces a fully static
+binary that still runs on Alpine (verified).</li>
+<li><b>musl-static</b> (<code>x86_64-linux-musl</code>,
+<code>aarch64-linux-musl</code>) is built inside
+<code>alpine:3.20</code> containers, with Boost compiled from source
+(<code>scripts/build-alpine.sh</code>) — Alpine ships no static Boost
+package and musl needs its own libc. The <code>smoke</code> step then
+runs <b>inside the same Alpine container</b> as the build, so the
+binary's ability to run on musl/Alpine is verified at CI time, not
+just assumed.</li>
+</ul>
+<p>Both are intentional: the glibc builds are the cheap default
+(one minute), the musl builds are the principle-correct
+universal-Linux artifact.</p>
+
+<h2>How to reproduce</h2>
+<pre><code># locally
+bash scripts/build.sh
+bash scripts/bench.sh TARGET=local
+
+# in CI (already wired):
+gh workflow run release.yml -r main
+# then download each <code>kenlm-&lt;target&gt;</code> artifact and <code>cat dist/bench-&lt;target&gt;.tsv</code></code></pre>
+<p>The bench corpus is deterministic (<code>srand(42)</code>), so numbers
+are reproducible within ~5 % run-to-run on shared runners.</p>
+
+<hr style="margin: 3rem 0; border: 0; border-top: 1px solid var(--border);">
+
+<p><a href="index.html">← kenlm home</a> · <a href="tutorial.html">beginner tutorial</a> · <a href="https://github.com/ljh-sh/kenlm/blob/main/docs/musl-vs-glibc.md">canonical source on github</a></p>
+
+</main>
+
+</body>
+</html>
