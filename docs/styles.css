@@ -126,6 +126,12 @@ header.page {
     line-height: 1.55;
 }
 .hero .byline b { color: var(--fg); }
+.hero .cpu-note {
+    color: var(--fg-muted);
+    font-size: 0.9rem;
+    margin: -0.8rem auto 1rem;
+}
+.hero .cpu-note b { color: var(--accent); }
 .hero h1 {
     font-size: 3.2rem;
     border: 0;
