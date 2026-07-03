@@ -15,17 +15,45 @@
 
 <section class="hero">
     <h1>kenlm</h1>
-    <p class="tagline">Fast n-gram language model training &amp; querying.
-    Self-contained static binaries — drop them on any machine and run.</p>
+    <p class="tagline"><b>Self-contained static binaries</b> of the fastest
+    n-gram language model toolkit — download, run, done.</p>
+    <p class="byline">
+        kenlm is an open-source project written by
+        <a href="https://github.com/kpu/kenlm"><b>Kenneth Heafield</b></a>
+        (original repo <a href="https://github.com/kpu/kenlm">kpu/kenlm</a>, 2011).
+        <b>This site distributes pre-built static binaries</b> of kenlm for
+        every major platform. We don't maintain kenlm &mdash; we just build it.
+    </p>
     <p>
         <a class="cta" href="#download" id="cta-main">Download for your platform</a>
         <a class="cta secondary" href="#tutorials">Read the tutorials</a>
     </p>
     <p class="meta">
         Latest: <code>v0.1.0</code> &middot;
-        <a href="https://github.com/ljh-sh/kenlm">github.com/ljh-sh/kenlm</a> &middot;
+        <a href="https://github.com/kpu/kenlm">kenlm @ kpu</a> &middot;
         <a href="musl-vs-glibc.html">musl vs glibc</a>
     </p>
+</section>
+
+<section id="about">
+    <h2>About this site (credits)</h2>
+    <div class="callout">
+        <p><b>kenlm</b> is an open-source n-gram language model toolkit written
+        by <a href="https://github.com/kpu/kenlm"><b>Kenneth Heafield</b></a>
+        (first released 2011; see
+        <a href="https://www.heafield.com/papers/heafield-thesis-compression.pdf">Heafield 2011</a>).
+        Its canonical home is <code>github.com/kpu/kenlm</code>; that's where
+        kenlm is <b>developed, maintained, and bug-fixed</b>.</p>
+        <p>This site &mdash;
+        <a href="https://github.com/ljh-sh/kenlm"><code>github.com/ljh-sh/kenlm</code></a>
+        &mdash; is <b>only a static-build distribution</b>. We don't own,
+        rebrand, or maintain kenlm; we just compile it as fully
+        self-contained static binaries for every major platform so you
+        can download and use it without a toolchain.</p>
+        <p>For questions, bug reports, and contributions &rarr;
+        please go to the
+        <a href="https://github.com/kpu/kenlm"><b>upstream project</b></a>.</p>
+    </div>
 </section>
 
 <section id="download">
@@ -165,14 +193,18 @@ echo "the cat sat" | query model.bin
 
 <footer>
 <p>
-    kenlm original: © 2011 Kenneth Heafield &middot;
-    LGPL licensed.
-    This distribution packaging, CI, musl + glibc split, and self-contained
-    release maintained by <a href="https://github.com/ljh-sh">ljh-sh</a>:
-    combined binaries under
-    <a href="https://www.gnu.org/licenses/gpl-3.0.html">GPLv3</a> &middot;
-    <a href="https://github.com/ljh-sh/kenlm/blob/main/NOTICE.md">NOTICE</a> &middot;
-    <a href="https://github.com/ljh-sh/kenlm">source repo</a>.
+    <b>kenlm</b> original &copy; 2011 <a href="https://github.com/kpu/kenlm">Kenneth Heafield</a>
+    &middot; canonical home: <a href="https://github.com/kpu/kenlm">github.com/kpu/kenlm</a>.
+    Source under LGPL; questions &amp; contributions go upstream.
+</p>
+<p>
+    Static builds, packaging, CI, and this website by
+    <a href="https://github.com/ljh-sh">ljh-sh</a>
+    &middot; <a href="https://github.com/ljh-sh/kenlm">github.com/ljh-sh/kenlm</a>
+    &middot; see <a href="https://github.com/ljh-sh/kenlm/blob/main/NOTICE.md">NOTICE</a>.
+    The combined-work static binaries we ship are released under
+    <a href="https://www.gnu.org/licenses/gpl-3.0.html">GPLv3</a>;
+    the unmodified source under <code>upstream/kenlm/</code> stays LGPL.
 </p>
 </footer>
 

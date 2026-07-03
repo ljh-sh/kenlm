@@ -116,8 +116,16 @@ header.page {
     text-align: center;
     padding: 3rem 1rem 2rem;
     border-bottom: 1px solid var(--border);
-    margin-bottom: 2.5rem;
+    margin-bottom: 2rem;
 }
+.hero .byline {
+    color: var(--fg-muted);
+    font-size: 0.95rem;
+    max-width: 640px;
+    margin: 0.5rem auto 1.5rem;
+    line-height: 1.55;
+}
+.hero .byline b { color: var(--fg); }
 .hero h1 {
     font-size: 3.2rem;
     border: 0;
