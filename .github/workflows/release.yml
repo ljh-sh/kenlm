@@ -108,14 +108,30 @@ jobs:
         run: docker run --rm --platform linux/${{ matrix.docker_arch }} -v "$PWD":/w -w /w alpine:3.20 sh -c 'apk add --no-cache bash >/dev/null && bash /w/scripts/smoke.sh'
 
       # ---- benchmark minimal pipeline -------------------------------------
-      # Runs on host for ALL targets so musl vs glibc timings are directly
-      # comparable (the musl-static binary runs on the ubuntu host fine).
-      - name: Benchmark minimal pipeline
+      # Runs on host for ALL targets so musl vs glibc timings are
+      # directly comparable (the musl-static binary runs on the
+      # ubuntu host fine).
+      #
+      # N=5 iterations via bench-multi.sh so we can compute min /
+      # median / mean+stddev / max for every column. The raw N rows
+      # land in dist/bench-<target>.tsv; the aggregated stats land
+      # in dist/bench-<target>.agg.tsv. consumers/docs:
+      #   - docs/musl-vs-glibc.md (rigorous comparison)
+      #   - the GitHub Release's body (auto-generated from notes)
+      - name: Benchmark minimal pipeline (5 iterations)
         shell: bash
+        env:
+          BENCH_ITER: "5"
         run: |
           mkdir -p dist
-          rm -f dist/bench-${{ matrix.target }}.tsv
-          bash scripts/bench.sh TARGET=${{ matrix.target }} | tee dist/bench-${{ matrix.target }}.tsv
+          rm -f dist/bench-${{ matrix.target }}.tsv dist/bench-${{ matrix.target }}.agg.tsv
+          BENCH_ITER=5 bash scripts/bench-multi.sh "${{ matrix.target }}" \
+            | tee dist/bench-${{ matrix.target }}.tsv
+          bash scripts/bench-aggregate.sh < dist/bench-${{ matrix.target }}.tsv \
+            > dist/bench-${{ matrix.target }}.agg.tsv
+          echo "  → raw rows:    $(wc -l < dist/bench-${{ matrix.target }}.tsv)"
+          echo "  → agg rows:    $(wc -l < dist/bench-${{ matrix.target }}.agg.tsv) (1 header + 5 stats × N targets)"
+          cat dist/bench-${{ matrix.target }}.agg.tsv
 
       # ---- package ---------------------------------------------------------
       - name: Package (Unix)
