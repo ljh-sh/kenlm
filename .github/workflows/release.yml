@@ -31,9 +31,10 @@ jobs:
           - { target: x86_64-linux-musl,  runner: ubuntu-latest,    os: linux,   libc: musl, docker_arch: amd64 }
           - { target: aarch64-linux-musl, runner: ubuntu-24.04-arm, os: linux,   libc: musl, docker_arch: arm64 }
           - { target: aarch64-macos,      runner: macos-14,         os: macos                 }
+          - { target: x86_64-macos,       runner: macos-13,         os: macos                 }
           - { target: x86_64-windows,     runner: windows-latest,   os: windows, triplet: x64-windows-static   }
           - { target: aarch64-windows,    runner: windows-11-arm,   os: windows, triplet: arm64-windows-static }
-    continue-on-error: ${{ matrix.target == 'aarch64-windows' || matrix.target == 'aarch64-linux-musl' }}
+    continue-on-error: ${{ matrix.target == 'aarch64-windows' || matrix.target == 'aarch64-linux-musl' || matrix.target == 'x86_64-macos' }}
     env:
       TARGET: ${{ matrix.target }}
     steps:

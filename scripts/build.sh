@@ -42,9 +42,22 @@ echo "    src  : $KENLM_SRC"
 echo "    build: $BUILD_DIR"
 cmake -S "$KENLM_SRC" -B "$BUILD_DIR" $CMAKE_ARGS
 
-JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
-echo "==> cmake --build -j$JOBS"
-cmake --build "$BUILD_DIR" -j"$JOBS"
+JOBS="$(nproc 2>/dev/null || sysctl -n hw.nproc 2>/dev/null || echo 4)"
+
+# KENLM_BUILD_TARGETS env var (csv) restricts the build to only those
+# binaries. Default: the four distributed binaries. CI uses this for
+# cross-arch targets (e.g. macos x86_64 cross-compile from arm64
+# runner) where the test/benchmark targets have arch-mismatched
+# transitive deps that we don't actually ship.
+: "${KENLM_BUILD_TARGETS:=lmplz build_binary query filter}"
+TARGETS_LIST=""
+for t in $KENLM_BUILD_TARGETS; do
+	TARGETS_LIST="$TARGETS_LIST --target $t"
+done
+TARGETS_LIST="${TARGETS_LIST# }"
+
+echo "==> cmake --build -j$JOBS $TARGETS_LIST"
+cmake --build "$BUILD_DIR" -j"$JOBS" $TARGETS_LIST
 
 echo "==> built binaries:"
 ls -1 "$BUILD_DIR/bin/" 2>/dev/null || true
